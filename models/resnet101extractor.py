@@ -8,12 +8,12 @@ import torchvision as tv
 
 # to use this code for forward propagation, do the following:
 # $import models.resnet101extractor as rn
-# $net = rn.Resnet101Transfer(20)          # Instantiates net (can leave out the 20 as num_classes=20 by default)
+# $net = rn.Resnet101Extractor(20)          # Instantiates net (can leave out the 20 as num_classes=20 by default)
 # $net = net.to(device)                    # Put net on device of your choice (GPU, etc.) 
 # $y = net(x.view(1,3,H,W))                # Forward pass. Be sure to resize RGB image from (3,H,W) tensor to (1,3,H,W) beforehand
 
 
-class Resnet101Transfer(nn.Module):
+class Resnet101Extractor(nn.Module):
     '''
     This class defines the portion of the architechture of R-FCN that uses ResNet101. 
     Inputs:
@@ -34,7 +34,7 @@ class Resnet101Transfer(nn.Module):
     '''
     def __init__(self, num_classes=20, fine_tuning=False):
         
-        super(Resnet101Transfer, self).__init__()
+        super(Resnet101Extractor, self).__init__()
         resnet = tv.models.resnet101(pretrained=True)
         for param in resnet.parameters():
             param.requires_grad = fine_tuning
