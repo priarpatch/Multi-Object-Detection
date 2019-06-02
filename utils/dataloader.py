@@ -18,10 +18,10 @@ def parse_rec(filename):
         obj_struct['truncated'] = int(obj.find('truncated').text)
         obj_struct['difficult'] = int(obj.find('difficult').text)
         bbox = obj.find('bndbox')
-        obj_struct['bbox'] = [int(bbox.find('xmin').text),
-                              int(bbox.find('ymin').text),
-                              int(bbox.find('xmax').text),
-                              int(bbox.find('ymax').text)]
+        obj_struct['bbox'] = [int(bbox.find('ymin').text),
+                              int(bbox.find('xmin').text),
+                              int(bbox.find('ymax').text),
+                              int(bbox.find('xmax').text)]
         objects.append(obj_struct)
 
     return objects
@@ -29,30 +29,35 @@ def parse_rec(filename):
 
 class PascalVOCDataset(td.Dataset):
     '''
+    objects: list of the annotation dictionaries with keys {name, pose, truncated, difficult, bbox}. 
+                name and bbox are probably the more important ones, which are already used in the mask.
     Inputs:
         root_dir: Directory of PascalVOC2012 dataset
         mode: "train", "val", "trainval"
+        
         
     Attributes:
     class_dict : dictionary describing how different classes are encoded
     __len__() : returns length of dataset
     __getitem__(idx) 
-        Outputs: (image, mask, objects)
+        Outputs: (image, bbox, bbox_labels, image_index)
             image: the image as a torch tensor of values between [-1,1] of dimensions (3,h,w)
-            mask: masks of bounding box labels, torch tensor of dimensions(K,h,w) where K is number of classes
-            objects: list of the annotation dictionaries with keys {name, pose, truncated, difficult, bbox}. 
-                name and bbox are probably the more important ones, which are already used in the mask.
+            bbox: masks of bounding box labels, torch tensor of dimensions(K,h,w) where K is number of classes
+            bbox_labels: object labels of boxes
+            
                 
     '''
-    def __init__(self, root_dir, mode = 'train'):
+    def __init__(self, root_dir, mode = 'train', im_size = 520):
         super(PascalVOCDataset, self).__init__()
         self.files = {}
         self.mode = mode
+        self.im_size = im_size
+        
         self.class_dict = {"person":0, "bird":1, "cat":2, "cow":3,
                            "dog":4, "horse":5, "sheep":6,
                            "aeroplane":7, "bicycle":8, "boat":9, "bus":10, "car":11,
                            "motorbike":12, "train":13,"bottle":14, "chair":15, 
-                           "dining table":16, "potted plant":17, "sofa":18, "tvmonitor":19}
+                           "diningtable":16, "pottedplant":17, "sofa":18, "tvmonitor":19}
         
         self.num_classes = len(self.class_dict.keys())
         
@@ -82,18 +87,27 @@ class PascalVOCDataset(td.Dataset):
         objects = parse_rec(annot_path)
         
         img = Image.open(img_path).convert('RGB')
+        
         transform = tv.transforms.Compose([
+        tv.transforms.Resize((self.im_size,self.im_size)),
         tv.transforms.ToTensor(),
-        tv.transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))
+        tv.transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5)),
         ])
         
         image = transform(img)
-        mask = torch.zeros((self.num_classes,image.shape[1],image.shape[2]))
+        bbox_labels = torch.zeros((len(objects),self.num_classes))
+        i=0
+        bbox = list()
+        bbox_imidx = list()
         for obj in objects:
             obj_idx = self.class_dict[obj['name']]
-            bbox = obj['bbox']
-            mask[obj_idx][bbox[1]:bbox[3],bbox[0]:bbox[2]] = 1
-        return image, mask, objects
+            bbox_labels[i,obj_idx]=1
+            bbox.append(obj['bbox'])
+            bbox_imidx.append([idx])
+            i+=1
+        bbox = torch.tensor(bbox)
+        bbox_imidx = torch.tensor(bbox_imidx)
+        return image, bbox, bbox_labels#, bbox_imidx
     
 def myimshow(image, ax=plt):
     image = image.to('cpu').numpy()
