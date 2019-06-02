@@ -7,6 +7,34 @@ from PIL import Image
 from matplotlib import pyplot as plt
 import xml.etree.ElementTree as ET
 
+def resize_bbox(bbox, in_size, out_size):
+    """Resize bounding boxes according to image resize.
+    The bounding boxes are expected to be packed into a two dimensional
+    tensor of shape :math:`(R, 4)`, where :math:`R` is the number of
+    bounding boxes in the image. The second axis represents attributes of
+    the bounding box. They are :math:`(y_{min}, x_{min}, y_{max}, x_{max})`,
+    where the four attributes are coordinates of the top left and the
+    bottom right vertices.
+    Args:
+        bbox (~numpy.ndarray): An array whose shape is :math:`(R, 4)`.
+            :math:`R` is the number of bounding boxes.
+        in_size (tuple): A tuple of length 2. The height and the width
+            of the image before resized.
+        out_size (tuple): A tuple of length 2. The height and the width
+            of the image after resized.
+    Returns:
+        ~numpy.ndarray:
+        Bounding boxes rescaled according to the given image shapes.
+    """
+    bbox = bbox.copy()
+    y_scale = float(out_size[0]) / in_size[0]
+    x_scale = float(out_size[1]) / in_size[1]
+    bbox[:, 0] = y_scale * bbox[:, 0]
+    bbox[:, 2] = y_scale * bbox[:, 2]
+    bbox[:, 1] = x_scale * bbox[:, 1]
+    bbox[:, 3] = x_scale * bbox[:, 3]
+    return bbox
+
 def parse_rec(filename):
     """ Parse a PASCAL VOC xml file """
     tree = ET.parse(filename)
@@ -87,7 +115,7 @@ class PascalVOCDataset(td.Dataset):
         objects = parse_rec(annot_path)
         
         img = Image.open(img_path).convert('RGB')
-        
+        width,height = img.size
         transform = tv.transforms.Compose([
         tv.transforms.Resize((self.im_size,self.im_size)),
         tv.transforms.ToTensor(),
@@ -98,15 +126,16 @@ class PascalVOCDataset(td.Dataset):
         bbox_labels = torch.zeros((len(objects),self.num_classes))
         i=0
         bbox = list()
-        bbox_imidx = list()
+        #bbox_imidx = list()
         for obj in objects:
             obj_idx = self.class_dict[obj['name']]
             bbox_labels[i,obj_idx]=1
             bbox.append(obj['bbox'])
-            bbox_imidx.append([idx])
+            #bbox_imidx.append([idx])
             i+=1
+        bbox = resize_bbox(np.array(bbox), (height,width), (self.im_size,self.im_size))
         bbox = torch.tensor(bbox)
-        bbox_imidx = torch.tensor(bbox_imidx)
+        #bbox_imidx = torch.tensor(bbox_imidx)
         return image, bbox, bbox_labels#, bbox_imidx
     
 def myimshow(image, ax=plt):
