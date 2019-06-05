@@ -38,30 +38,59 @@ class Resnet101Extractor(nn.Module):
         resnet = tv.models.resnet101(pretrained=True)
         for param in resnet.parameters():
             param.requires_grad = fine_tuning
-        self.conv1 = resnet.conv1
-        self.bn1 = resnet.bn1
-        self.relu = resnet.relu
-        self.maxpool = resnet.maxpool
-        self.layer1 = resnet.layer1
-        self.layer2 = resnet.layer2
-        self.layer3 = resnet.layer3
-        self.layer4 = resnet.layer4
+        conv1 = resnet.conv1
+        bn1 = resnet.bn1
+        relu = resnet.relu
+        maxpool = resnet.maxpool
+        layer1 = resnet.layer1
+        layer2 = resnet.layer2
+        layer3 = resnet.layer3
+        layer4 = resnet.layer4
+        
+        # Define block that feeds into RPN and second part of convolutions
+        self.RN_base = nn.Sequential(
+            conv1,
+            bn1,
+            maxpool,
+            layer1,
+            layer2,
+            layer3
+        )
         
         # avgpool and fc from Resnet101 are ignored
         # replace with single randomly initialized conv layer
         # initialization is from normal distribution - subject to change
         self.conv_custom = nn.Conv2d(2048, 1024, 1)
         self.conv_custom.weight.data = nn.init.normal_(self.conv_custom.weight.data, mean=0, std=1)
+        
+        # Define block that feeds into convolutional layers before ROI pooling
+        self.RN_tail = nn.Sequential(
+            layer4,
+            self.conv_custom
+        )
+        
     
     def forward(self, x):
-        f = self.conv1(x)
-        f = self.bn1(f)
-        f = self.relu(f)
-        f = self.maxpool(f)
-        f = self.layer1(f)
-        f = self.layer2(f)
-        f = self.layer3(f)
-        f = self.layer4(f)
-        y = self.conv_custom(f)
+        #f = self.conv1(x)
+        #f = self.bn1(f)
+        #f = self.relu(f)
+        #f = self.maxpool(f)
+        #f = self.layer1(f)
+        #f = self.layer2(f)
+        #f = self.layer3(f)
+        #f = self.layer4(f)
+        #y = self.conv_custom(f)
+        
+        h = self.RN_base(x)
+        y = self.RN_tail(h)
         
         return y
+    
+    def train(self, mode=True):
+        # Override train function to set Resnet layers to eval mode
+        nn.Module.train(self, mode)
+        
+        if mode:
+            self.RN_base.eval()
+            
+            
