@@ -49,7 +49,7 @@ def smooth_L1(bbox_pred, rois_target, rois_inside_ws, rois_outside_ws):
     ## UNDER CONSTRUCTION
     return loss
 
-def loss(cls_score, rois_label, bbox_pred, rois_target, rois_inside_ws, rois_outside_ws):
+def RCNN_loss(cls_score, rois_label, bbox_pred, rois_target, rois_inside_ws, rois_outside_ws):
     # note: cls_score and rois_label are softmax score vectors, NOT one-hot vectors
     # classification loss (cross entropy)
     class_loss = F.cross_entropy(cls_score, rois_label)
@@ -59,6 +59,14 @@ def loss(cls_score, rois_label, bbox_pred, rois_target, rois_inside_ws, rois_out
     
     return class_loss, bbox_loss
 
+def rpn_loss(rpn_class_score, rpn_label):
+    class_loss = F.cross_entropy(rpn_cls_score, rpn_label)
+    
+    # this one not done, gotta edit arguments
+    bbox_loss = smooth_L1(rpn_bbox_pred, rpn_bbox_targets, rpn_bbox_inside_weights,
+rpn_bbox_outside_weights, sigma=3, dim=[1,2,3])
+    
+    return class_loss, bbox_loss
 
 def train(model, train_set, B=1, lr=1e-3, device, num_epoch):
     params = []
@@ -83,10 +91,14 @@ def train(model, train_set, B=1, lr=1e-3, device, num_epoch):
                 
                 # forward pass
                 rois, class_prob, bbox_pred, rois_labl = model(image)
-                #loss
-                rpn_loss_cls, rpn_loss_box = #loss function
+                # RCNN loss
+                RCNN_loss_cls, RCNN_loss_bbox = RCNN_loss(cls_score, rois_label, bbox_pred, rois_target, rois_inside_ws, rois_outside_ws)
                 
-                loss = rpn_loss_cls + rpn_loss_box
+                # rpn loss
+                rpn_loss_cls, rpn_loss_box = rpn_loss()#loss function for rpn
+                
+                #total loss
+                loss = rpn_loss_cls + rpn_loss_box + RCNN_loss_cls + RCNN_loss_cls
                 
                 #back prop
                 optimizer = zero_grad()
