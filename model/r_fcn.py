@@ -8,7 +8,7 @@ from model.utils.bbox_tools import loc2bbox
 from model.utils.nms import non_maximum_suppression
 
 from torch import nn
-from data.dataset import preprocess
+# from data.dataset import preprocess
 from torch.nn import functional as F
 from utils.config import opt
 
@@ -213,17 +213,18 @@ class RFCN(nn.Module):
 
         """
         self.eval()
-        if visualize:
-            self.use_preset('visualize')
-            prepared_imgs = list()
-            sizes = list()
-            for img in imgs:
-                size = img.shape[1:]
-                img = preprocess(at.tonumpy(img))
-                prepared_imgs.append(img)
-                sizes.append(size)
-        else:
-             prepared_imgs = imgs 
+#         if visualize:
+#             self.use_preset('visualize')
+#             prepared_imgs = list()
+#             sizes = list()
+#             for img in imgs:
+#                 size = img.shape[1:]
+#                 img = preprocess(at.tonumpy(img))
+#                 prepared_imgs.append(img)
+#                 sizes.append(size)
+#         else:
+#              prepared_imgs = imgs 
+        prepared_imgs = imgs #CHANGED THIS PV
         bboxes = list()
         labels = list()
         scores = list()
