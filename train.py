@@ -1,48 +1,193 @@
+import torch as t
 import torch.utils.data as td
 import torch.nn.functional as F
+from model.utils.creator_tool import AnchorTargetCreator, ProposalTargetCreator
+from utils import array_tool as at
 
-'''
-def eval(dataloader, model):
-    box_pred    = []
-    label_pred  = []
-    box_truth   = []
-    label_truth = []
-    
-    result = #evaluate function
-    
-    return result
+# might need this later
+# fix for ulimit
+# https://github.com/pytorch/pytorch/issues/973#issuecomment-346405667
+#import resource
+#rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+#resource.setrlimit(resource.RLIMIT_NOFILE, (20480, rlimit[1]))
 
-def train(model, train_set, device = 'cuda', B=1, lr=1e-3):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+class trainer(nn.Module):
+    def __init__(self, model, optimizer, device):
+        super.(trainer; self).__init__()
+        
+        self.model     = model
+        self.optimizer = optimizer
+        self.device    = device
+        
+        # Put model and optimizer on device
+        self.model     = self.model.to(device)
+        self.optimizer = self.model.to(device)
+        
+        self.anchor_target_creator   = AnchorTargetCreator()
+        self.proposal_target_creator = ProposalTargetCreator()
     
-    model = model.to(device)
-    adam = torch.optim.Adam(model.parameters(), lr=lr)
-    train_loader = td.DataLoader(train_set, batch_size = B, pin_memory = True, shuffle = True)
-    
-    best_map = 0
-    
-    for epoch in range():
-        #clear stuff
-        for bch_in, (image, bbox, bbox_labels) in enumerate(train_loader):
-            img  = image.to(device)
-            bbox = bbox.to(device)
-            lbl  = bbox_labels.to(device)
+    def eval(dataloader, model):
+        box_pred    = []
+        label_pred  = []
+        box_truth   = []
+        label_truth = []
+
+        result = #evaluate function
+
+        return result
+
+    def train(self, train_set, test_set, scale=1, num_epoch, B=1, lr=1e-3):
+        #device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        #model = model.to(device)
+        #adam = torch.optim.Adam(model.parameters(), lr=lr)
+        
+        train_loader = td.DataLoader(train_set, batch_size=B, pin_memory = False, shuffle = True)
+        test_loader  = td.DataLoader(test_set, batch_size=B, pin_memory = True, shuffle = False)
+        
+        # load stuff here
+        
+        best_map = 0
+
+        self.model.zero_grad()
+        
+        # set up plots here
+        
+        for epoch in range(num_epoch):
+            #clear stuff (trainer.reset_meters())
+            for batch_ind, (image, bbox, bbox_labels, scale) in enumerate(train_loader):
+                #move data to device
+                at.scalar(scale)
+                img  = image.to(device)
+                bbox = bbox.to(device)
+                lbl  = bbox_labels.to(device)
+                self.step(img, bbox, label, scale)
+                
+                #plot loss and stuff every 2 epochs
+                if (epoch+1) % 2 == 0:
+                    # plot stuff (loss, boxes, rpn confusion matrix, etc.) goes here
+
+            # test with evaluation data, plot results
+            #result = eval(train_loader, self.model)
             
-            #trainer.step(img, bbox, label)
-            adam.zero_grad()
-            losses = forward(img, bbox, lbl)
-            losses.total_loss.backward()
-            adam.step()
+            # log info to file here
             
-            
-            #plot shit
+            #plot
+
+
+            if result['map'] > best_map:
+                best_map = result['map']
+
+
+    def step(self, imgs, bboxes, lbls, scale):
+        #forward pass through network, get losses, then backprop
+        self.optimizer.zero_grad()
+        losses = self.forward(imgs, bboxes, lbls, scale)
+        losses.total_loss.backward()
+        self.optimizer.step()
+
+        return losses
     
-        result = (train_loader, model)
-        #plot
+    def forward(self, imgs, bboxes, lbls, scale):
+        # forward pass, get losses as tuple
+        n = bboxes.shape[0]
+        _,_,H,W = imgs.shape #H, W = dimensions of images
+        im_size = (H,W)
+        
+        features = self.model.extractor(imgs)
+        
+        rpn_locs, rpn_scores, rois, roi_ind, anchor = self.model.rpn(features, im_size, scale)
+        
+        #batch size = 1, therefore make variable singular
+        rpn_loc = rpn_locs[0]
+        rpn_score = rpn_scores[0]
+        roi = rois
+        bbox  = bboxes[0]
+        label = lbls[0]
+        
+        sample_roi, truth_roi_loc, truth_roi_lbl = self.proposal_target_creator(
+            roi,
+            at.tonumpy(bbox),
+            at.tonumpy(lbl),
+            self.loc_normalize_mean,
+            self.loc_normalie_std
+        )
+        sample_roi_ind = t.zeros(len(sample_roi))
+        roi_cls_loc, roi_score = self.model.head(features, sample_roi, sample_roi_ind)
         
         
-        if result['map'] > best_map:
-            best_map = result['map']
+        
+        
+        
+        # ----- RPN Losses -----
+        rpn_loss_cls, rpn_loss_loc = rpn_loss(bbox, anchor, im_size)
+        
+        # ===== ROI losses -----
+        roi_loss_cls, roi_loss = roi_loss
+        
+        
+        
+        
+        
+        
+        total = rpn_loc_loss + rpm_cls_loss + roi_loc_loss + roi_cls_loss
+        
+        # not sure if losses should be a dictionary instead, but here's a definition for that just in case
+        #losses = {
+        #    'rpn_loc_loss': rpn_loc_loss,
+        #    'rpn_cls_loss': rpn_cls_loss,
+        #    'roi_loc_loss': roi_loc_loss,
+        #    'roi_cls_loss': roi_cls_loss,
+        #    'total_loss'  : total
+        #}
+        losses = [rpn_loss_loc, rpm_loss_cls, roi_loss_loc, roi_loss_cls, total]
+        return losses
+    
+    def rpn_loss(bbox, anchor, im_size):
+        # Get ground truth regions and labels
+        truth_rpn_loc, truth_rpn_lbl = self.anchor_target_creator(at.tonumpy(bbox), \\
+                                                                  anchor, im_size)
+        truth_rpn_lbl = at.totensor(truth_rpn_loc).long()
+        truth_rpn_loc = at.totensor(truth_prn_loc)
+        
+        # calculate localization loss for rpn
+        rpn_loss_loc = _fast_rcnn_loc_loss(rpn_loc, truth_rpn_loc, truth_rpn_lbl.data, self.rpn_sigma=3)
+        
+        # calculate classification loss for rpn
+        rpn_loss_cls = F.cross-entropy(rpn_score, gt_prn_lbl.device(), ignore_index=-1)
+        
+        return rpn_loss_cls, rpn_loss_loc
+            
+    def loc_loss(self, loc_pred, loc_truth, lbl_truth, sigma):
+        in_weight = t.zeros(loc_truth.shape).to(self.device)
+        
+        in_weight[(lbl_truth > 0).view(-1,1).expand_as(in_weight).to(self.device)] = 1
+        
+        loc_loss = smooth_L1(loc_pred, loc_truth, in_weight.detach(), sigma)
+        # normalize loss by total number of positive and negative rois
+        loc_loss = loc_loss / ((lbl_truth >= 0).sum().float()) #ignore gt_label==-1 for rpn loss
+        
+        return loc_loss
+    
+    def smooth_L1_of_diff(self, x1, x2, in_weight, sigma)
+        # Calculate localization loss using Smooth L1 loss, as defined in R. Girshick. Fast R-CNN. InICCV, 2015
+        sigma2 = sigma**2
+        arg = in_weight * (x1 - x2)
+        abs_arg = arg.abs()
+        arg_less_than_1 = (abs_arg.data < (1. / sigma2)).float() # change boolean to float, multiply difference with this to filter out values from specific cases, as seen below
+        #case 1: abs(arg) < 1
+        y_case1 = (arg_less_than_1) * (0.5 * sigma2) * (arg**2)
+        #case 2: abs(arg) >= 1
+        y_case2 = (1 - arg_less_than_1) * (abs_arg - (0.5 /  sigma2))
+        
+        y = y_case1 + y_case2
+        
+        #x_less_than 1 = (abs_diff.data < (1. / sigma2)).float()
+        #y = (flag * (sigma2 / 2.) * (diff**2) + (1 - flag) * (abs_diff - 0.5 / sigma2))
+        #loc_loss = y.sum()
+        
+        return y
+
 '''        
 def smooth_L1(bbox_pred, rois_target, rois_inside_ws, rois_outside_ws):
     # Smooth L1 loss, as defined in R. Girshick. Fast R-CNN. InICCV, 2015
@@ -105,3 +250,4 @@ def train(model, train_set, B=1, lr=1e-3, device, num_epoch):
                 loss.backward()
         
         #
+'''
