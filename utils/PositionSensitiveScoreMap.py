@@ -58,7 +58,7 @@ class PositionSensitiveScoreMap(nn.Module):
                     x_stop = x_start+x_step
                     #print(y_start,y_stop,x_start,x_stop)
                     for cls in range(0,c_plus_1):
-                        pooling_track[i,cls,j,l] = cls_conv_out[_-1,count,y_start:y_stop,x_start:x_stop].mean()
+                        pooling_track[i,cls,j,l] = cls_conv_out[_-1,count,y_start:y_stop,x_start:x_stop].mean().float()
                         count=count+1
         
         pooling_track[pooling_track != pooling_track] = 0   # this will convert all of th nan value to zero
