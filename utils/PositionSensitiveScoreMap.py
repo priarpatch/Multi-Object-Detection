@@ -3,7 +3,7 @@
 
 # In[1]:
 
-
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -17,8 +17,9 @@ class PositionSensitiveScoreMap(nn.Module):
     # Outputs: scores for all C+1 and for each bbox in the rois 
     
     # Here we define our network structure
-    def __init__(self):
+    def __init__(self,feat_stride = (520//17)):
         super(PositionSensitiveScoreMap, self).__init__()
+        self.feat_stride = feat_stride
         k=7
         self.k=k
         self.softmax = nn.Softmax()
@@ -27,6 +28,8 @@ class PositionSensitiveScoreMap(nn.Module):
         
     # Here we define one forward pass through the network
     def forward(self, cls_conv_out,rois):
+        feat_stride = self.feat_stride
+        rois = rois // feat_stride
         k=self.k
         n = rois.shape[0] #number of regions to look at
     
@@ -53,13 +56,13 @@ class PositionSensitiveScoreMap(nn.Module):
                 for l in range(0,k):
                     x_start = xmin+l*x_step
                     x_stop = x_start+x_step
+                    #print(y_start,y_stop,x_start,x_stop)
                     for cls in range(0,c_plus_1):
-                        section = cls_conv_out[_-1,count,y_start:y_stop,x_start:x_stop]
-                        pooling_track[i,cls,j,l] = float(section.mean())
+                        pooling_track[i,cls,j,l] = cls_conv_out[_-1,count,y_start:y_stop,x_start:x_stop].mean()
                         count=count+1
-    
-        scores = self.softmax(self.AvgPool(pooling_track))
         
+        pooling_track[pooling_track != pooling_track] = 0   # this will convert all of th nan value to zero
+        scores = self.softmax(self.AvgPool(pooling_track.float()))
         return scores
 
 
