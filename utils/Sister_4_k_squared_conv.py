@@ -11,9 +11,9 @@ import torch.nn.functional as F
 
 class Sister_4_k_squared_conv(nn.Module):
     
-    # inputs to the forward pass ar the classification convolution layer outputs
-    # and rois
-    # Outputs: scores for all C+1 and for each bbox in the rois 
+    # inputs to the feature_map and rois
+    # does the convolution to get a 4*(k^2)-d output and then does roi sensitive pooling described as Bounding Box Regression
+    # Outputs: a tensor that has n 4-d tensors, where n is the number of rois input into the forward path 
     
     # Here we define our network structure
     def __init__(self,feat_stride = 520//17,k=7):
