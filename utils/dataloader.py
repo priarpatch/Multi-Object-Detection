@@ -123,18 +123,21 @@ class PascalVOCDataset(td.Dataset):
         ])
         
         image = transform(img)
-        bbox_labels = torch.zeros((len(objects),self.num_classes))
+        #bbox_labels = torch.zeros((len(objects),self.num_classes))
         i=0
         bbox = list()
         #bbox_imidx = list()
+        bbox_labels = list()
         for obj in objects:
             obj_idx = self.class_dict[obj['name']]
-            bbox_labels[i,obj_idx]=1
+            #bbox_labels[i,obj_idx]=1
+            bbox_labels.append(obj_idx)
             bbox.append(obj['bbox'])
             #bbox_imidx.append([idx])
             i+=1
         bbox = resize_bbox(np.array(bbox), (height,width), (self.im_size,self.im_size))
         bbox = torch.tensor(bbox)
+        bbox_labels = torch.tensor(bbox_labels)
         scale = self.im_size/height
         #bbox_imidx = torch.tensor(bbox_imidx)
         return image, bbox, bbox_labels, scale 
