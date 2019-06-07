@@ -116,9 +116,9 @@ class FasterRCNNTrainer(nn.Module):
             self.loc_normalize_mean,
             self.loc_normalize_std)
         # NOTE it's all zero because now it only support for batch=1 now
-        print(gt_roi_label.shape)
-        print(type(gt_roi_label))
-        print(gt_roi_label)
+#         print(gt_roi_label.shape)
+#         print(type(gt_roi_label))
+#         print(gt_roi_label)
         sample_roi_index = t.zeros(len(sample_roi))
         roi_cls_loc, roi_score = self.faster_rcnn.head(
             features,
@@ -170,9 +170,9 @@ class FasterRCNNTrainer(nn.Module):
     def train_step(self, imgs, bboxes, labels, scale):
         self.optimizer.zero_grad()
         losses = self.forward(imgs, bboxes, labels, scale)
-        print(losses)
-        print(losses.total_loss)
-        print(type(losses.total_loss))
+#         print(losses)
+#         print(losses.total_loss)
+#         print(type(losses.total_loss))
         losses.total_loss.backward()
         self.optimizer.step()
         self.update_meters(losses)
