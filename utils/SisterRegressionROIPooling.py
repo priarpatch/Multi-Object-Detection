@@ -44,16 +44,16 @@ class SisterRegressionROIPooling(nn.Module):
             xmax = int(rois[i,3])+1
             
             
-            y_range = ymax - ymin # height range
-            x_range = xmax - xmin # width range
-            y_step = int(y_range/k)
-            x_step = int(x_range/k)
+            #y_range = ymax - ymin # height range
+            #x_range = xmax - xmin # width range
+            #y_step = int(y_range/k)
+            #x_step = int(x_range/k)
             
            
             
-            print(ymin,ymax,xmin,xmax)
+            #print(ymin,ymax,xmin,xmax)
             
-            condition_1 = ((ymax-ymin)<1)
+            #condition_1 = ((ymax-ymin)<1)
             
             
             ##############################################################
