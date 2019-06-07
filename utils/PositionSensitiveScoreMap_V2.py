@@ -59,6 +59,7 @@ class PositionSensitiveScoreMap_V2(nn.Module):
         
         pooling_track[pooling_track != pooling_track] = 0   # this will convert all of th nan value to zero
         scores = self.softmax(F.adaptive_avg_pool2d(pooling_track.float(),(1,1))[:,:])
+        scores = torch.squeeze(scores)
         
         return scores
 
