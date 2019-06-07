@@ -126,7 +126,7 @@ class RFCNtrainer(nn.Module):
         rpn_cls_loss, rpn_loc_loss = self.rpn_loss(rpn_loc, rpn_score, bbox, anchor, im_size)
         
         # ----- ROI losses -----
-        roi_cls_loss, roi_loc_loss = self.roi_loss(roi_loc, roi_cls_loc, gt_roi_loc, gt_roi_lbl)
+        roi_cls_loss, roi_loc_loss = self.roi_loss(roi_cls_loc, gt_roi_loc, gt_roi_lbl)
         
         
         
@@ -177,10 +177,10 @@ class RFCNtrainer(nn.Module):
         
         
         
-        return rpn_loss_cls, rpn_loss_loc
+        return rpn_cls_loss, rpn_loc_loss
     
     
-    def roi_loss(self, loi_loc, roi_cls_loc, gt_roi_loc, gt_roi_lbl):
+    def roi_loss(self, roi_cls_loc, gt_roi_loc, gt_roi_lbl):
         n_sample = roi_cls_loc.shape[0]
         roi_cls_loc = roi_cls_loc.view(n_sample, -1, 4)
         roi_loc = roi_cls_loc[t.arange(0, n_sample).long().to(self.device), \
@@ -210,6 +210,10 @@ class RFCNtrainer(nn.Module):
     
     def smooth_L1_loss(self, x1, x2, in_weight, sigma):
         # Calculate localization loss using Smooth L1 loss, as defined in R. Girshick. Fast R-CNN. InICCV, 2015
+        #in_weight = in_weight.to(t.double)
+        x1 = x1.float()
+        x2 = x2.float()
+        
         sigma2 = sigma**2
         arg = in_weight * (x1 - x2)
         abs_arg = arg.abs()
