@@ -58,7 +58,7 @@ class RFCNtrainer(nn.Module):
             #clear stuff (RFCNtrainer.reset_meters())
             for batch_ind, (image, bbox, bbox_labels, scale) in enumerate(train_loader):
                 #move data to device
-                at.scalar(scale)
+                scale = at.scalar(scale)
                 img  = image.to(self.device)
                 bbox = bbox.to(self.device)
                 lbl  = bbox_labels.to(self.device)
@@ -112,8 +112,8 @@ class RFCNtrainer(nn.Module):
             roi,
             at.tonumpy(bbox),
             at.tonumpy(lbl),
-            self.loc_normalize_mean,
-            self.loc_normalie_std
+            self.model.loc_normalize_mean,
+            self.model.loc_normalize_std
         )
         sample_roi_ind = t.zeros(len(sample_roi))
         roi_cls_loc, roi_score = self.model.head(features, sample_roi, sample_roi_ind)
@@ -123,10 +123,10 @@ class RFCNtrainer(nn.Module):
         
         
         # ----- RPN Losses -----
-        rpn_cls_loss, rpn_loc_loss = rpn_loss(rpn_loc, rpn_score, bbox, anchor, im_size)
+        rpn_cls_loss, rpn_loc_loss = self.rpn_loss(rpn_loc, rpn_score, bbox, anchor, im_size)
         
         # ----- ROI losses -----
-        roi_cls_loss, roi_loc_loss = roi_loss(roi_loc, roi_cls_loc, gt_roi_loc, gt_roi_lbl)
+        roi_cls_loss, roi_loc_loss = self.roi_loss(roi_loc, roi_cls_loc, gt_roi_loc, gt_roi_lbl)
         
         
         
@@ -166,7 +166,7 @@ class RFCNtrainer(nn.Module):
         gt_rpn_loc = at.totensor(gt_rpn_loc)
         
         ## calculate localization loss for rpn (sigma = 3)
-        rpn_loc_loss = loc_loss(rpn_loc, gt_rpn_loc, gt_rpn_lbl.data, 3)
+        rpn_loc_loss = self.loc_loss(rpn_loc, gt_rpn_loc, gt_rpn_lbl.data, 3)
 
         # calculate classification loss for rpn
         rpn_cls_loss = F.cross_entropy(rpn_score, gt_rpn_lbl.to(self.device), ignore_index=-1)
@@ -188,7 +188,7 @@ class RFCNtrainer(nn.Module):
         gt_roi_lbl = at.totensor(gt_roi_lbl).long()
         gt_roi_loc = at.totensor(gt_roi_loc)
 
-        roi_loc_loss = loc_loss(roi_loc.contiguous(), gt_roi_loc, gt_roi_lbl.data, 1)
+        roi_loc_loss = self.loc_loss(roi_loc.contiguous(), gt_roi_loc, gt_roi_lbl.data, 1)
 
         roi_cls_loss = nn.CrossEntropyLoss()(roi_score, gt_roi_lbl.self.device)
         
@@ -200,9 +200,9 @@ class RFCNtrainer(nn.Module):
         
         in_weight[(lbl_gt > 0).view(-1,1).expand_as(in_weight).to(self.device)] = 1
         
-        loc_loss = smooth_L1_loss(loc_pred, loc_gt, in_weight.detach(), sigma)
+        loc_loss = self.smooth_L1_loss(loc_pred, loc_gt, in_weight.detach(), sigma)
         
-        # normalize loss by total number of positive and negative rois
+        # normalize loss by total num ber of positive and negative rois
         loc_loss = loc_loss / ((lbl_gt >= 0).sum().float()) #ignore lbl_gt==-1 for rpn loss
         
         return loc_loss
