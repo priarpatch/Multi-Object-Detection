@@ -7,7 +7,8 @@ from model.r_fcn import RFCN
 from model.roi_module import RoIPooling2D
 from utils import array_tool as at
 from utils.config import opt
-from utils.PositionSensitiveScoreMap import PositionSensitiveScoreMap
+from utils.PositionSensitiveScoreMap_V2 import PositionSensitiveScoreMap_V2 as PositionSensitiveScoreMap
+from utils.SisterRegressionROIPooling import SisterRegressionROIPooling
 
 class RFCNResnet101(RFCN):
     """R-FCN based on Resnet-101.
@@ -25,7 +26,7 @@ class RFCNResnet101(RFCN):
 
     """
 
-    feat_stride = 520//17  # Res101 downsamples from ~520 to ~17 #changed this
+    feat_stride = 520//16  # Res101 downsamples from ~520 to ~17 #changed this
 
     def __init__(self,
                  n_fg_class=20,
@@ -87,7 +88,7 @@ class Resnet101RoIHead(nn.Module):
         
         #Position-Sensitive ROI Pooling, voting
         self.PSROI_cls = PositionSensitiveScoreMap()
-        self.PSROI_reg = PositionSensitiveScoreMap()
+        self.PSROI_reg = SisterRegressionROIPooling()
         
 #         #Avg pooling (voting)
 #         self.cls_score = nn.AvgPool2d((7,7), stride=(7,7))
@@ -120,8 +121,9 @@ class Resnet101RoIHead(nn.Module):
         rois = at.totensor(rois).float()
         indices_and_rois = t.cat([roi_indices[:, None], rois], dim=1)
         # NOTE: important: yx->xy
-        xy_indices_and_rois = indices_and_rois[:, [0, 2, 1, 4, 3]]
-        indices_and_rois =  xy_indices_and_rois.contiguous()
+        
+        #xy_indices_and_rois = indices_and_rois[:, [0, 2, 1, 4, 3]]
+        #indices_and_rois =  xy_indices_and_rois.contiguous()
         
         cls_out = self.cls_layer(feature_maps)
         roi_scores = self.PSROI_cls(cls_out, rois)
