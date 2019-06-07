@@ -117,7 +117,7 @@ class PascalVOCDataset(td.Dataset):
         img = Image.open(img_path).convert('RGB')
         width,height = img.size
         transform = tv.transforms.Compose([
-        #tv.transforms.Resize((self.im_size,self.im_size)),
+        tv.transforms.Resize((self.im_size,self.im_size)),
         tv.transforms.ToTensor(),
         tv.transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5)),
         ])
@@ -133,10 +133,11 @@ class PascalVOCDataset(td.Dataset):
             bbox.append(obj['bbox'])
             #bbox_imidx.append([idx])
             i+=1
-        #bbox = resize_bbox(np.array(bbox), (height,width), (self.im_size,self.im_size))
+        bbox = resize_bbox(np.array(bbox), (height,width), (self.im_size,self.im_size))
         bbox = torch.tensor(bbox)
+        scale = self.im_size/height
         #bbox_imidx = torch.tensor(bbox_imidx)
-        return image, bbox, bbox_labels#, bbox_imidx
+        return image, bbox, bbox_labels, scale 
     
 def myimshow(image, ax=plt):
     image = image.to('cpu').numpy()
