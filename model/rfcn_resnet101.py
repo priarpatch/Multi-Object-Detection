@@ -83,7 +83,7 @@ class Resnet101RoIHead(nn.Module):
         nn.init.normal(self.cls_layer.weight.data, 0.0, 0.01)
         
         #4k^2*(C) convolution for regression
-        self.reg_layer = nn.Conv2d(1024, 4*(self.n_class-1)*7*7, [1,1], padding=0, stride=1)
+        self.reg_layer = nn.Conv2d(1024, 4*2*7*7, [1,1], padding=0, stride=1)
         nn.init.normal(self.reg_layer.weight.data, 0.0, 0.01)
         
         #Position-Sensitive ROI Pooling, voting

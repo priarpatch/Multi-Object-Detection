@@ -35,7 +35,7 @@ class SisterRegressionROIPooling(nn.Module):
         
         n = rois.shape[0] #number of regions to look at
         
-        out = torch.zeros((n,20,4))
+        out = torch.zeros((n,2,4))
     
         for i in range(0,n):
             ymin = int(rois[i,0])
@@ -63,7 +63,7 @@ class SisterRegressionROIPooling(nn.Module):
             block = F.adaptive_avg_pool2d(block, (1,1))
             #############################################################
             count = 0
-            for cls in range(0,20):
+            for cls in range(0,2):
                 for z in range(0,4):
                     out[i,cls,z] = block[0,count] #roi,cls,coordinate indexing
                     count=count+1
