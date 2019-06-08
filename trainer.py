@@ -137,7 +137,7 @@ class FasterRCNNTrainer(nn.Module):
             self.rpn_sigma)
 
         # NOTE: default value of ignore_index is -100 ...
-        rpn_cls_loss = F.cross_entropy(rpn_score.cuda(), gt_rpn_label.cuda(), ignore_index=-1)
+        rpn_cls_loss = F.cross_entropy(rpn_score, gt_rpn_label.cuda(), ignore_index=-1)
         _gt_rpn_label = gt_rpn_label[gt_rpn_label > -1]
         _rpn_score = at.tonumpy(rpn_score)[at.tonumpy(gt_rpn_label) > -1]
         self.rpn_cm.add(at.totensor(_rpn_score, False), _gt_rpn_label.data.long())
@@ -164,7 +164,7 @@ class FasterRCNNTrainer(nn.Module):
 
         self.roi_cm.add(at.totensor(roi_score, False), gt_roi_label.data.long())
 
-        losses = [rpn_loc_loss.cuda(), rpn_cls_loss.cuda(), roi_loc_loss.cuda(), roi_cls_loss.cuda()]
+        losses = [rpn_loc_loss.cuda(), rpn_cls_loss, roi_loc_loss.cuda(), roi_cls_loss]
         losses = losses + [sum(losses)]
 
         return LossTuple(*losses)
@@ -172,12 +172,13 @@ class FasterRCNNTrainer(nn.Module):
     def train_step(self, imgs, bboxes, labels, scale):
         self.optimizer.zero_grad()
         losses = self.forward(imgs, bboxes, labels, scale)
-#         print(losses)
-#         print(losses.total_loss)
-#         print(type(losses.total_loss))
+        print(losses)
+        print(losses.total_loss)
+        print(type(losses.total_loss))
         losses.total_loss.backward()
         self.optimizer.step()
-        self.update_meters(losses)
+        with torch.no_grad():
+            self.update_meters(losses)
         return losses
 
     def save(self, save_optimizer=False, save_path=None, **kwargs):
