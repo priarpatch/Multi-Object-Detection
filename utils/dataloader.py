@@ -75,7 +75,7 @@ class PascalVOCDataset(td.Dataset):
             
                 
     '''
-    def __init__(self, root_dir, mode = 'train', im_size = 520):
+    def __init__(self, root_dir, mode = 'train', im_size = 250):
         super(PascalVOCDataset, self).__init__()
         self.files = {}
         self.mode = mode
