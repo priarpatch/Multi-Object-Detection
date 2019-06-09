@@ -19,6 +19,7 @@ def load_kernel(kernel_name, code, **kwargs):
     return kernel_code.get_function(kernel_name)
 
 
+
 CUDA_NUM_THREADS = 1024
 
 

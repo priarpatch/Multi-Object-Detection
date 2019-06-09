@@ -7,7 +7,7 @@ from model.r_fcn import RFCN
 from model.roi_module import RoIPooling2D
 from utils import array_tool as at
 from utils.config import opt
-from utils.PositionSensitiveScoreMap_V2 import PositionSensitiveScoreMap_V2 as PositionSensitiveScoreMap
+from utils.PositionSensitiveScoreMap_V3 import PositionSensitiveScoreMap_V3 as PositionSensitiveScoreMap
 from utils.SisterRegressionROIPooling import SisterRegressionROIPooling
 
 class RFCNResnet101(RFCN):
@@ -79,16 +79,16 @@ class Resnet101RoIHead(nn.Module):
         self.spatial_scale = spatial_scale
         
         #k^2(C+1) convolution for classification
-        self.cls_layer = nn.Conv2d(1024,self.n_class*7*7, [1,1], padding=0, stride=1)
+        self.cls_layer = nn.Conv2d(1024,self.n_class*3*3, [1,1], padding=0, stride=1)
         nn.init.normal(self.cls_layer.weight.data, 0.0, 0.01)
         
         #4k^2*(C) convolution for regression
-        self.reg_layer = nn.Conv2d(1024, 4*2*7*7, [1,1], padding=0, stride=1)
+        self.reg_layer = nn.Conv2d(1024, 4*2*3*3, [1,1], padding=0, stride=1)
         nn.init.normal(self.reg_layer.weight.data, 0.0, 0.01)
         
         #Position-Sensitive ROI Pooling, voting
-        self.PSROI_cls = PositionSensitiveScoreMap()
-        self.PSROI_reg = SisterRegressionROIPooling()
+        self.PSROI_cls = PositionSensitiveScoreMap().cuda()
+        self.PSROI_reg = SisterRegressionROIPooling().cuda()
         
 #         #Avg pooling (voting)
 #         self.cls_score = nn.AvgPool2d((7,7), stride=(7,7))

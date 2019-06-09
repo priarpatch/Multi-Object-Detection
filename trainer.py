@@ -124,6 +124,15 @@ class FasterRCNNTrainer(nn.Module):
             features,
             sample_roi,
             sample_roi_index)
+        
+        print('roi_score outputs')
+        print(roi_score.max())
+        print(roi_score.min())
+        #roi_score = F.normalize(roi_score)
+        roi_score = roi_score.cuda()
+        
+        roi_prob = F.softmax(roi_score).cuda() #sc
+        
 
         # ------------------ RPN losses -------------------#
         gt_rpn_loc, gt_rpn_label = self.anchor_target_creator(
@@ -145,7 +154,12 @@ class FasterRCNNTrainer(nn.Module):
         self.rpn_cm.add(at.totensor(_rpn_score, False), _gt_rpn_label.data.long())
 
         # ------------------ ROI losses (fast rcnn loss) -------------------#
+        #gt_roi_label_reg = gt_roi_label
+        #gt_roi_label_reg[gt_roi_label_reg > 0 ] = 1
         gt_roi_label_reg = (gt_roi_label>0).astype('int32')
+        
+        print(gt_roi_label_reg)
+        print(roi_cls_loc)
         
         n_sample = roi_cls_loc.shape[0]
         roi_cls_loc = roi_cls_loc.view(n_sample, -1, 4)
@@ -161,18 +175,45 @@ class FasterRCNNTrainer(nn.Module):
             gt_roi_loc,
             gt_roi_label_reg.data,
             self.roi_sigma)
+        
+        gt_roi_label.cuda()
+        print(gt_roi_label.size())
+        print(roi_score.size())
+        
+        print(gt_roi_label)
+        
+        
 
-        roi_cls_loss = nn.CrossEntropyLoss()(roi_score.cuda(), gt_roi_label.cuda()) # move roi_score to cuda
+        
+        #assigning -log(sc*) to roi_cls_loss
+        #num_rois = roi_score.shape[0]
+        #device = torch.device('cuda')
+        #roi_cls_loss = torch.zeros((num_rois),device=device,dtype =torch.float,requires_grad=True)
+        #with torch.enable_grad():
+        #roi_cls_loss = torch.zeros(num_rois).cuda()
+        #for i in range(0,num_rois):
+        #    roi_cls_loss[i] = - torch.log(roi_prob[i,int(gt_roi_label[i])])
+        
+        
+        roi_cls_loss = F.cross_entropy(roi_prob,gt_roi_label.cuda()) # move roi_score to cuda
 
-        self.roi_cm.add(at.totensor(roi_score, False), gt_roi_label.data.long())
+        self.roi_cm.add(at.totensor(roi_prob, False), gt_roi_label.data.long())
 
-        losses = [rpn_loc_loss.cuda(), rpn_cls_loss.cuda(), roi_loc_loss.cuda(), roi_cls_loss.cuda()]
+        roi_loc_loss = (roi_loc_loss*10).cuda()
+        print(roi_loc_loss)
+        roi_cls_loss = (roi_cls_loss).cuda()
+        print(roi_cls_loss)
+        
+        
+        
+        losses = [rpn_loc_loss.cuda(), rpn_cls_loss.cuda(), roi_loc_loss.cuda() , roi_cls_loss.cuda()]
         losses = losses + [sum(losses)]
 
         return LossTuple(*losses)
 
     def train_step(self, imgs, bboxes, labels, scale):
         self.optimizer.zero_grad()
+        #with torch.enable_grad():
         losses = self.forward(imgs, bboxes, labels, scale)
 #         print(losses)
 #         print(losses.total_loss)
@@ -269,3 +310,27 @@ def _fast_rcnn_loc_loss(pred_loc, gt_loc, gt_label, sigma):
     # Normalize by total number of negtive and positive rois.
     loc_loss /= ((gt_label >= 0).sum().float()) # ignore gt_label==-1 for rpn_loss
     return loc_loss
+
+def indices(a, func):
+    return [i for (i, val) in enumerate(a) if func(val)]
+
+
+def ProcessScoresToLabels(scores,gt_roi_label):
+    print(scores)
+    print(scores.size())
+    max_scores,max_score_label = scores.max(1)
+    valid_roi_indices_from_thresholding = indices(max_scores, lambda x: x >= 0.3)
+    
+    labels_out = max_score_label[valid_roi_indices_from_thresholding]
+    gt_roi_labels_for_loss = gt_roi_label[valid_roi_indices_from_thresholding]
+    
+    num_valid = len(valid_roi_indices_from_thresholding) # this is the number of rois that passed the score thresholding
+    gt_roi_label_for_loss = gt_roi_label[valid_roi_indices_from_thresholding].cuda()
+    roi_score_label_for_loss =  gt_roi_label[valid_roi_indices_from_thresholding].cuda()
+    for i in range(0,num_valid):
+        roi_index = valid_roi_indices_from_thresholding[i] # this is also the score index, this is the roi index that created the score 
+        cls_of_roi = indices(scores[roi_index], lambda x: x == scores[roi_index].max()) # gets class of the valid max_score (this is a list)
+        roi_score_label_for_loss = cls_of_roi[0] # this appends the integer of the class
+
+    
+    return roi_score_label_for_loss,gt_roi_label_for_loss,
