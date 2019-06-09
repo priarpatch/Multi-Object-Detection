@@ -228,6 +228,7 @@ class RFCN(nn.Module):
         bboxes = list()
         labels = list()
         scores = list()
+        sizes = list()
         for img, size in zip(prepared_imgs, sizes):
             img = at.totensor(img[None]).float()
             scale = img.shape[3] / size[1]

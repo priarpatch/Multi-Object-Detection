@@ -17,10 +17,9 @@ class PositionSensitiveScoreMap_V2(nn.Module):
     # Outputs: scores for all C+1 and for each bbox in the rois 
     
     # Here we define our network structure
-    def __init__(self,feat_stride = (520//16)):
+    def __init__(self,feat_stride = (520//16),k=3):
         super(PositionSensitiveScoreMap_V2, self).__init__()
         self.feat_stride = feat_stride
-        k=7
         self.k=k
         self.softmax = nn.Softmax()
         

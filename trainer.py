@@ -137,7 +137,7 @@ class FasterRCNNTrainer(nn.Module):
             self.rpn_sigma)
 
         # NOTE: default value of ignore_index is -100 ...
-        rpn_cls_loss = F.cross_entropy(rpn_score, gt_rpn_label.cuda(), ignore_index=-1)
+        rpn_cls_loss = F.cross_entropy(rpn_score.cuda(), gt_rpn_label.cuda(), ignore_index=-1)
         _gt_rpn_label = gt_rpn_label[gt_rpn_label > -1]
         _rpn_score = at.tonumpy(rpn_score)[at.tonumpy(gt_rpn_label) > -1]
         self.rpn_cm.add(at.totensor(_rpn_score, False), _gt_rpn_label.data.long())
@@ -162,7 +162,7 @@ class FasterRCNNTrainer(nn.Module):
 
         roi_cls_loss = nn.CrossEntropyLoss()(roi_score.cuda(), gt_roi_label.cuda()) # move roi_score to cuda
 
-        self.roi_cm.add(at.totensor(roi_score, False), gt_roi_label.data.long())
+        #self.roi_cm.add(at.totensor(roi_score, False), gt_roi_label.data.long())
 
         losses = [rpn_loc_loss.cuda(), rpn_cls_loss, roi_loc_loss.cuda(), roi_cls_loss]
         losses = losses + [sum(losses)]
@@ -172,9 +172,6 @@ class FasterRCNNTrainer(nn.Module):
     def train_step(self, imgs, bboxes, labels, scale):
         self.optimizer.zero_grad()
         losses = self.forward(imgs, bboxes, labels, scale)
-        print(losses)
-        print(losses.total_loss)
-        print(type(losses.total_loss))
         losses.total_loss.backward()
         self.optimizer.step()
         with torch.no_grad():
@@ -198,14 +195,13 @@ class FasterRCNNTrainer(nn.Module):
         save_dict['model'] = self.faster_rcnn.state_dict()
         save_dict['config'] = opt._state_dict()
         save_dict['other_info'] = kwargs
-        save_dict['vis_info'] = self.vis.state_dict()
 
         if save_optimizer:
             save_dict['optimizer'] = self.optimizer.state_dict()
 
         if save_path is None:
             timestr = time.strftime('%m%d%H%M')
-            save_path = 'checkpoints/fasterrcnn_%s' % timestr
+            save_path = 'checkpoints/rfcn_%s' % timestr
             for k_, v_ in kwargs.items():
                 save_path += '_%s' % v_
 
@@ -214,7 +210,6 @@ class FasterRCNNTrainer(nn.Module):
             os.makedirs(save_dir)
 
         t.save(save_dict, save_path)
-        self.vis.save([self.vis.env])
         return save_path
 
     def load(self, path, load_optimizer=True, parse_opt=False, ):

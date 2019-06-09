@@ -16,7 +16,7 @@ class SisterRegressionROIPooling(nn.Module):
     # Outputs: a tensor that has n 4-d tensors, where n is the number of rois input into the forward path 
     
     # Here we define our network structure
-    def __init__(self,feat_stride=520//16,x_scale = 500//16,y_scale = 330//11 ,k=7):
+    def __init__(self,feat_stride=520//16,x_scale = 500//16,y_scale = 330//11 ,k=3):
         super(SisterRegressionROIPooling, self).__init__()
         #self.x_scale = x_scale
         #self.y_scale = y_scale

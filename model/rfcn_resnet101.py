@@ -70,7 +70,7 @@ class Resnet101RoIHead(nn.Module):
 
     """
 
-    def __init__(self, n_class, roi_size, spatial_scale):
+    def __init__(self, n_class, roi_size, spatial_scale, k=3):
         # n_class includes background
         super(Resnet101RoIHead, self).__init__()
 
@@ -79,16 +79,16 @@ class Resnet101RoIHead(nn.Module):
         self.spatial_scale = spatial_scale
         
         #k^2(C+1) convolution for classification
-        self.cls_layer = nn.Conv2d(1024,self.n_class*7*7, [1,1], padding=0, stride=1)
+        self.cls_layer = nn.Conv2d(1024,self.n_class*k*k, [1,1], padding=0, stride=1)
         nn.init.normal(self.cls_layer.weight.data, 0.0, 0.01)
         
         #4k^2*(C) convolution for regression
-        self.reg_layer = nn.Conv2d(1024, 4*2*7*7, [1,1], padding=0, stride=1)
+        self.reg_layer = nn.Conv2d(1024, 4*2*k*k, [1,1], padding=0, stride=1)
         nn.init.normal(self.reg_layer.weight.data, 0.0, 0.01)
         
         #Position-Sensitive ROI Pooling, voting
-        self.PSROI_cls = PositionSensitiveScoreMap()
-        self.PSROI_reg = SisterRegressionROIPooling()
+        self.PSROI_cls = PositionSensitiveScoreMap(k=k)
+        self.PSROI_reg = SisterRegressionROIPooling(k=k)
         
 #         #Avg pooling (voting)
 #         self.cls_score = nn.AvgPool2d((7,7), stride=(7,7))
@@ -117,9 +117,9 @@ class Resnet101RoIHead(nn.Module):
         """
         
         # in case roi_indices is  ndarray
-        roi_indices = at.totensor(roi_indices).float()
+        #roi_indices = at.totensor(roi_indices).float()
         rois = at.totensor(rois).float()
-        indices_and_rois = t.cat([roi_indices[:, None], rois], dim=1)
+        #indices_and_rois = t.cat([roi_indices[:, None], rois], dim=1)
         # NOTE: important: yx->xy
         
         #xy_indices_and_rois = indices_and_rois[:, [0, 2, 1, 4, 3]]
@@ -131,7 +131,6 @@ class Resnet101RoIHead(nn.Module):
         reg_out = self.reg_layer(feature_maps)
         roi_cls_locs = self.PSROI_reg(reg_out, rois)
 #         bbox_preds = self.bbox_pred(bbox_reg)
-        
 #         pool = self.roi(x, indices_and_rois)
 #         pool = pool.view(pool.size(0), -1)
 #         fc7 = self.classifier(pool)
