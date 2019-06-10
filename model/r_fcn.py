@@ -20,7 +20,8 @@ def nograd(f):
     return new_f
 
 class RFCN(nn.Module):
-    """Base class for R-FCN.
+    """MODIFIED FROM SIMPLE FASTER R-CNN REPO BASE TO ADAPT TO R-FCN
+    Base class for R-FCN.
 
     This is a base class for R-FCN links supporting object detection
     API [#]_. The following three stages constitute Faster R-CNN.

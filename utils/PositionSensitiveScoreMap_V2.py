@@ -1,7 +1,6 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
+'''
+Raw implementation of position sensitive score mapping for classification
+'''
 
 import torch
 import torch.nn as nn
@@ -25,6 +24,10 @@ class PositionSensitiveScoreMap_V2(nn.Module):
         
     # Here we define one forward pass through the network
     def forward(self, cls_conv_out,rois):
+        '''
+        cls_conv_out: tensor(N,K^2*(C+1),H,W)
+        rois: tensor(N,4)
+        '''
         feat_stride = self.feat_stride
         rois = rois // feat_stride
         k=self.k
@@ -61,18 +64,6 @@ class PositionSensitiveScoreMap_V2(nn.Module):
         scores = torch.squeeze(scores)
         
         return scores
-
-
-# In[2]:
-#pooling_track[i,cls,j,k]=cls_conv_out[_-1,count,y_start:y_stop,x_start:x_stop].mean().float()
-
-#PSSM =PositionSensitiveScoreMap()
-#print(PSSM)
-#scores = PSSM(cls_conv_out,rois)
-
-
-# In[ ]:
-
 
 
 

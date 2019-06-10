@@ -11,7 +11,9 @@ from utils.PositionSensitiveScoreMap_V2 import PositionSensitiveScoreMap_V2 as P
 from utils.SisterRegressionROIPooling import SisterRegressionROIPooling
 
 class RFCNResnet101(RFCN):
-    """R-FCN based on Resnet-101.
+    """MODIFIED FROM SIMPLE FASTER R-CNN REPO BASE TO ADAPT TO R-FCN
+    
+    R-FCN based on Resnet-101.
     For descriptions on the interface of this model, please refer to
     :class:`model.r_fcn.RFCN`.
 

@@ -1,8 +1,6 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[48]:
-
+'''
+Raw position-sensitive ROI pooling implementation for regression branch
+'''
 
 import torch
 import torch.nn as nn
@@ -25,6 +23,10 @@ class SisterRegressionROIPooling(nn.Module):
 
     # Here we define one forward pass through the network
     def forward(self,conv_out,rois):
+        '''
+        cls_conv_out: tensor(N,8*K^2,H,W)
+        rois: tensor(N,4)
+        '''
         #x_scale = self.x_scale
         #y_scale = self.y_scale
         feat_stride = self.feat_stride

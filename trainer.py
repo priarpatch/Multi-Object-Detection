@@ -23,7 +23,8 @@ LossTuple = namedtuple('LossTuple',
 
 
 class FasterRCNNTrainer(nn.Module):
-    """wrapper for conveniently training. return losses
+    """MODIFIED FROM SIMPLE FASTER-RCNN REPO BASE TO TRAIN R-FCN IMPLEMENTATION
+    wrapper for conveniently training. return losses
 
     The losses include:
 

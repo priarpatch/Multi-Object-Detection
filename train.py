@@ -1,17 +1,95 @@
+from __future__ import  absolute_import
+# though cupy is not used but without this line, it raise errors...
+import cupy as cp
+import os
+
+import matplotlib
+from tqdm import tqdm
+
 import torch as t
+from utils.config import opt
+from model.rfcn_resnet101 import RFCNResnet101
+from torch.utils import data as data_
+from trainer import FasterRCNNTrainer
+from utils import array_tool as at
+from utils.vis_tool import visdom_bbox
+from utils.eval_tool import eval_detection_voc
 import torch.nn as nn
 import torch.utils.data as td
 import torch.nn.functional as F
-from model.utils.creator_tool import AnchorTargetCreator, ProposalTargetCreator
-from utils import array_tool as at
 
-# might need this later
-# fix for ulimit
-# https://github.com/pytorch/pytorch/issues/973#issuecomment-346405667
-#import resource
-#rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
-#resource.setrlimit(resource.RLIMIT_NOFILE, (20480, rlimit[1]))
+import resource
 
+rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+resource.setrlimit(resource.RLIMIT_NOFILE, (20480, rlimit[1]))
+
+matplotlib.use('agg')
+
+
+def eval(dataloader, faster_rcnn, test_num=10000):
+    gt_difficults = False
+    pred_bboxes, pred_labels, pred_scores = list(), list(), list()
+    gt_bboxes, gt_labels, gt_difficults = list(), list(), list()
+    for ii, (imgs, sizes, gt_bboxes_, gt_labels_) in tqdm(enumerate(dataloader)):
+        pred_bboxes_, pred_labels_, pred_scores_ = faster_rcnn.predict(imgs)
+        gt_bboxes += list(gt_bboxes_.numpy())
+        gt_labels += list(gt_labels_.numpy())
+        pred_bboxes += pred_bboxes_
+        pred_labels += pred_labels_
+        pred_scores += pred_scores_
+        if ii == test_num: break
+
+    result = eval_detection_voc(
+        pred_bboxes, pred_labels, pred_scores,
+        gt_bboxes, gt_labels, gt_difficults,
+        use_07_metric=True)
+    return result
+
+
+def train(train_set, val_set, load_path = False, epochs = 1, lr=1e-3, record_every = 300, lr_decay = 1e-3,test_num=500):
+    '''
+    Uses the training set and validation set as arguments to create dataloader. Loads and trains model
+    '''
+    train_dataloader = td.DataLoader(train_set, batch_size = 1, pin_memory = False, shuffle = True)
+    test_dataloader = td.DataLoader(val_set, batch_size = 1, pin_memory = True)
+    faster_rcnn = RFCNResnet101().cuda()
+    print('model construct completed')
+    trainer = FasterRCNNTrainer(faster_rcnn).cuda()
+    saved_loss = []
+    iterations = []
+    if load_path:
+        trainer.load(load_path)
+        print('load pretrained model from %s' % load_path)
+        state_dict = t.load(load_path)
+        saved_loss = state_dict['losses']
+        iterations = state_dict['iterations']
+        
+    best_map = 0
+    lr_ = lr
+    for epoch in range(epochs):
+        trainer.reset_meters()
+        for ii, (img, bbox_, label_, scale) in tqdm(enumerate(train_dataloader)):
+            scale = at.scalar(scale)
+            img, bbox, label = img.cuda().float(), bbox_.cuda(), label_.cuda()
+            losses = trainer.train_step(img, bbox, label, scale)
+            loss_info = 'Iter {}; Losses: RPN loc {}, RPN cls: {}, ROI loc {}, ROI cls {}, Total:{}'.format(
+                                                str(ii),
+                                                "%.3f" % losses[0].cpu().data.numpy(),
+                                                "%.3f" % losses[1].cpu().data.numpy(),
+                                                "%.3f" % losses[2].cpu().data.numpy(),
+                                                "%.3f" % losses[3].cpu().data.numpy(),                                
+                                                "%.3f" % losses[4].cpu().data.numpy())
+            print(loss_info)
+            if (ii + 1) % record_every == 0:
+                
+                iterations.append(ii + 1) 
+                saved_loss.append([losses[0].cpu().item(),losses[1].cpu().item(),
+                              losses[2].cpu().item(),losses[3].cpu().item(),
+                              losses[4].cpu().item()])
+                kwargs = {"losses": saved_loss, "iterations": iterations}
+                trainer.save(saved_loss = saved_loss, iterations = iterations)
+                print("new model saved")
+                
 class RFCNtrainer(nn.Module):
     def __init__(self, model, optimizer, device):
         super(RFCNtrainer, self).__init__()
@@ -235,66 +313,3 @@ class RFCNtrainer(nn.Module):
         
         return y
 
-'''        
-def smooth_L1(bbox_pred, rois_target, rois_inside_ws, rois_outside_ws):
-    # Smooth L1 loss, as defined in R. Girshick. Fast R-CNN. InICCV, 2015
-    ## UNDER CONSTRUCTION
-    return loss
-
-def RCNN_loss(cls_score, rois_label, bbox_pred, rois_target, rois_inside_ws, rois_outside_ws):
-    # note: cls_score and rois_label are softmax score vectors, NOT one-hot vectors
-    # classification loss (cross entropy)
-    class_loss = F.cross_entropy(cls_score, rois_label)
-    
-    # bounding box regression loss (smooth L1 loss)
-    bbox_loss = smooth_L1(bbox_pred, rois_target, rois_inside_ws, rois_outside_ws)
-    
-    return class_loss, bbox_loss
-
-def rpn_loss(rpn_class_score, rpn_label):
-    class_loss = F.cross_entropy(rpn_cls_score, rpn_label)
-    
-    # this one not done, gotta edit arguments
-    bbox_loss = smooth_L1(rpn_bbox_pred, rpn_bbox_targets, rpn_bbox_inside_weights,
-rpn_bbox_outside_weights, sigma=3, dim=[1,2,3])
-    
-    return class_loss, bbox_loss
-
-def train(model, train_set, B=1, lr=1e-3, device, num_epoch):
-    params = []
-    for name, value in dicr(model.named_parameters()).items():
-        if value.requires_grad():
-            param = param + [{'params:':[name],'lr':lr,'weight-decay':0.0005}]
-        optimizer =torch.optim.Adam(params)
-        
-        # load checkpoint here
-        model.to(device)
-        
-        for epoch in range(num_epoch):
-            model.train()
-            
-            # adjust learning rate every x epochs here if needed
-            
-            for bat_ind, (image, bbox, bbox_labels) in enumerate(train_loader):
-                [_,h,w] = image.size()
-                image = image.view(1,3,h,w)
-                
-                model.zero_grad()
-                
-                # forward pass
-                rois, class_prob, bbox_pred, rois_labl = model(image)
-                # RCNN loss
-                RCNN_loss_cls, RCNN_loss_bbox = RCNN_loss(cls_score, rois_label, bbox_pred, rois_target, rois_inside_ws, rois_outside_ws)
-                
-                # rpn loss
-                rpn_loss_cls, rpn_loss_box = rpn_loss()#loss function for rpn
-                
-                #total loss
-                loss = rpn_loss_cls + rpn_loss_box + RCNN_loss_cls + RCNN_loss_cls
-                
-                #back prop
-                optimizer = zero_grad()
-                loss.backward()
-        
-        #
-'''
